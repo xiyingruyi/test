@@ -1,0 +1,139 @@
+name: Update Proxies
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 00:00 运行
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Fetch subscription content with Puppeteer
+        run: |
+          cat << 'EOF' > fetch.js
+          const puppeteer = require('puppeteer');
+          const fs = require('fs');
+          
+          (async () => {
+            // 启动浏览器，添加反检测选项
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu'
+              ]
+            });
+            const page = await browser.newPage();
+            
+            // 设置随机 User-Agent 和视口，模拟真实浏览器
+            const userAgents = [
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            ];
+            const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+            await page.setUserAgent(randomUA);
+            await page.setViewport({ width: 1920, height: 1080 });
+            
+            try {
+              // 从 index.php 开始，等待网络空闲
+              await page.goto('https://www.bsbb.cc/sub/index.php', { 
+                waitUntil: 'networkidle0',
+                timeout: 30000 
+              });
+              
+              // 等待 10 秒重定向（模拟 JS 延迟）
+              await page.waitForTimeout(10000);
+              
+              // 获取最终 URL
+              const finalUrl = page.url();
+              console.log('Final URL after redirect:', finalUrl);
+              
+              let content = '';
+              if (finalUrl.includes('/api/sub.php')) {
+                // 已重定向到 API，提取纯文本内容
+                content = await page.evaluate(() => document.body.innerText.trim());
+              } else {
+                // 如果未重定向，直接访问 API
+                console.log('Redirect not detected, accessing API directly');
+                await page.goto('https://www.bsbb.cc/api/sub.php?t=cefcc1b46a5daecc824598207e9ff10a', { 
+                  waitUntil: 'networkidle0',
+                  timeout: 30000 
+                });
+                content = await page.evaluate(() => document.body.innerText.trim());
+              }
+              
+              // 写入文件
+              fs.writeFileSync('sub.txt', content);
+              console.log(`Fetched content length: ${content.length} characters`);
+              
+            } catch (error) {
+              console.error('Error during fetch:', error.message);
+              fs.writeFileSync('sub.txt', '');  // 空文件以防后续失败
+            } finally {
+              await browser.close();
+            }
+          })();
+          EOF
+          
+          node fetch.js
+          
+          # 检查是否获取成功
+          if [ ! -s sub.txt ]; then
+            echo "Failed to fetch content. Check Puppeteer logs above."
+            exit 1
+          fi
+          echo "Successfully fetched $(wc -l < sub.txt) lines"
+
+      - name: Decode and extract VLESS/Trojan links
+        run: |
+          # 尝试 Base64 解码，如果失败则当作明文
+          if command -v base64 >/dev/null && base64 -d sub.txt > decoded.txt 2>/dev/null; then
+            echo "Decoded Base64 content"
+          else
+            cp sub.txt decoded.txt
+            echo "Treated as plain text"
+          fi
+          
+          # 提取 vless:// 和 trojan:// 链接，每行一个
+          grep -E '^(vless|trojan)://' decoded.txt > nodes.txt || true
+          
+          # 如果没有匹配，创建空文件
+          if [ ! -s nodes.txt ]; then
+            touch nodes.txt
+          fi
+          
+          # 清理临时文件
+          rm -f sub.txt decoded.txt
+          
+          echo "Extracted $(wc -l < nodes.txt) nodes to nodes.txt"
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add nodes.txt
+          
+          # 只在有变化时提交
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update nodes.txt - $(date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
