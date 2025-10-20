@@ -2,7 +2,7 @@ name: Update Proxies
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 00:00 运行
+    - cron: '0 0,12 * * *'  # 每天 UTC 00:00 和 12:00 运行
   workflow_dispatch:  # 支持手动触发
 
 jobs:
@@ -159,16 +159,39 @@ jobs:
           
           echo "Extracted $(wc -l < nodes.txt) nodes to nodes.txt"
 
+      - name: Setup Python and Convert nodes.txt to proxies.yaml
+        if: always()  # 即使前一步失败也运行，但检查nodes.txt
+        run: |
+          # 安装Python依赖
+          pip install pyyaml
+          
+          # 检查nodes.txt是否有效
+          if [ ! -s nodes.txt ] || [ $(wc -l < nodes.txt) -eq 0 ]; then
+            echo "nodes.txt is empty or invalid, skipping conversion."
+            exit 0
+          fi
+          
+          # 运行转换脚本
+          python convert_nodes.py
+          
+          # 检查proxies.yaml是否生成
+          if [ ! -s proxies.yaml ]; then
+            echo "Failed to generate proxies.yaml."
+            exit 1
+          fi
+          
+          echo "Successfully generated proxies.yaml with $(grep -c '^-' proxies.yaml) nodes."
+
       - name: Commit and push changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add nodes.txt
+          git add nodes.txt proxies.yaml  # 添加两个文件
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update nodes.txt - $(date '+%Y-%m-%d %H:%M:%S')"
+            git commit -m "Update nodes.txt and proxies.yaml - $(date '+%Y-%m-%d %H:%M:%S')"
             # 强制用 PAT 或默认 token 重设 remote（确保写权限）
             git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN || github.token }}@github.com/${{ github.repository }}.git
             git push
