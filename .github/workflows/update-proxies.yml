@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}  # 优先用 PAT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -167,7 +169,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update nodes.txt - $(date '+%Y-%m-%d %H:%M:%S')"
-            # Fallback for PAT if default token lacks write perms
-            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN || github.token }}@github.com/${{ github.repository }}.git || true
+            # 用 PAT 或默认 token 重设 remote（确保写权限）
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN || github.token }}@github.com/${{ github.repository }}.git
             git push
           fi
