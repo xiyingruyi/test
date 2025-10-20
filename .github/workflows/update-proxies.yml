@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN || github.token }}  # 优先用 PAT
+          token: ${{ secrets.PAT_TOKEN || github.token }}  # 优先 PAT 写权限
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -148,8 +148,8 @@ jobs:
           echo "Decoded content preview (first 5 lines):"
           head -5 decoded.txt
           
-          # 提取仅 vless:// 和 trojan://（用户需求）
-          grep -iE -o '(vless|trojan)://[^[:space:]\r\n]*' decoded.txt | sort -u > nodes.txt || true
+          # 提取完整行（vless:// 或 trojan:// 开头），包括标签/延迟
+          grep -E '^(vless|trojan)://.*$' decoded.txt | sort -u > nodes.txt || true
           
           if [ ! -s nodes.txt ]; then
             touch nodes.txt
@@ -169,7 +169,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update nodes.txt - $(date '+%Y-%m-%d %H:%M:%S')"
-            # 用 PAT 或默认 token 重设 remote（确保写权限）
+            # 强制用 PAT 或默认 token 重设 remote（确保写权限）
             git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN || github.token }}@github.com/${{ github.repository }}.git
             git push
           fi
