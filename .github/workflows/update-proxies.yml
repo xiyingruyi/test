@@ -30,7 +30,6 @@ jobs:
           puppeteer.use(StealthPlugin());
           
           (async () => {
-            // 启动浏览器，使用 stealth 插件
             const browser = await puppeteer.launch({
               headless: 'new',
               args: [
@@ -47,7 +46,6 @@ jobs:
             });
             const page = await browser.newPage();
             
-            // 更真实的 User-Agent 和额外设置
             const userAgents = [
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
@@ -63,13 +61,12 @@ jobs:
             let content = '';
             
             try {
-              // 监听所有响应，优先捕获 API 响应
               page.on('response', async (response) => {
                 const url = response.url();
                 if (url.includes('/api/sub.php')) {
                   try {
                     const text = await response.text();
-                    if (text.length > 100 && !text.includes('Verify you are human')) {  // 过滤挑战页
+                    if (text.length > 100 && !text.includes('Verify you are human')) {
                       content = text.trim();
                       console.log('Captured API response length:', content.length);
                       console.log('Raw content preview (first 200 chars):', content.substring(0, 200));
@@ -80,24 +77,20 @@ jobs:
                 }
               });
               
-              // 从 index.php 开始
               console.log('Navigating to index.php');
               await page.goto('https://www.bsbb.cc/sub/index.php', { 
                 waitUntil: 'networkidle0',
                 timeout: 30000 
               });
               
-              // 等待 10 秒重定向
               await new Promise(resolve => setTimeout(resolve, 10000));
               
               const finalUrl = page.url();
               console.log('Final URL after redirect:', finalUrl);
               
-              // 额外等待响应处理
               await new Promise(resolve => setTimeout(resolve, 5000));
               
               if (content.length === 0) {
-                // Fallback: 直接访问最终 URL 或原始 API
                 let targetUrl = finalUrl.includes('/api/sub.php') ? finalUrl : 'https://www.bsbb.cc/api/sub.php?t=cefcc1b46a5daecc824598207e9ff10a';
                 console.log('Fallback: Navigating to', targetUrl);
                 await page.goto(targetUrl, { 
@@ -106,7 +99,6 @@ jobs:
                 });
                 await new Promise(resolve => setTimeout(resolve, 3000));
                 
-                // 尝试从响应或页面获取
                 const responses = await page.evaluate(() => {
                   return Array.from(document.querySelectorAll('pre, body')).map(el => el.innerText).filter(text => text.length > 100);
                 });
@@ -118,7 +110,6 @@ jobs:
                 console.log('Fallback content length:', content.length);
               }
               
-              // 最终检查：如果仍疑似挑战页，失败
               if (content.includes('Verify you are human') || content.length < 1000) {
                 throw new Error('Detected challenge page or insufficient content');
               }
@@ -137,7 +128,6 @@ jobs:
           
           node fetch.js
           
-          # 检查是否获取成功（要求 >1000 char 以匹配 300+ 节点）
           if [ ! -s sub.txt ] || [ $(wc -c < sub.txt) -lt 1000 ]; then
             echo "Failed to fetch sufficient content. Check Puppeteer logs above."
             exit 1
@@ -146,7 +136,6 @@ jobs:
 
       - name: Decode and extract VLESS/Trojan links
         run: |
-          # 尝试 Base64 解码
           if command -v base64 >/dev/null && base64 -d sub.txt > decoded.txt 2>/dev/null && [ $(wc -c < decoded.txt) -gt $(wc -c < sub.txt) ]; then
             echo "Decoded Base64 content"
           else
@@ -154,19 +143,16 @@ jobs:
             echo "Treated as plain text"
           fi
           
-          # 日志：输出前5行
           echo "Decoded content preview (first 5 lines):"
           head -5 decoded.txt
           
-          # 提取所有 URI（vless, trojan，可能 vmess 等）
-          grep -iE -o '(vless|trojan|vmess)://[^[:space:]\r\n]*' decoded.txt | sort -u > nodes.txt || true
+          # 提取仅 vless:// 和 trojan://（用户需求）
+          grep -iE -o '(vless|trojan)://[^[:space:]\r\n]*' decoded.txt | sort -u > nodes.txt || true
           
-          # 如果无匹配，空文件
           if [ ! -s nodes.txt ]; then
             touch nodes.txt
           fi
           
-          # 清理
           rm -f sub.txt decoded.txt
           
           echo "Extracted $(wc -l < nodes.txt) nodes to nodes.txt"
@@ -181,5 +167,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update nodes.txt - $(date '+%Y-%m-%d %H:%M:%S')"
+            # Fallback for PAT if default token lacks write perms
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN || github.token }}@github.com/${{ github.repository }}.git || true
             git push
           fi
