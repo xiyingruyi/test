@@ -58,8 +58,8 @@ jobs:
                 timeout: 30000 
               });
               
-              // 等待 10 秒重定向（模拟 JS 延迟）
-              await page.waitForTimeout(10000);
+              // 等待 10 秒重定向（模拟 JS 延迟，使用 Promise polyfill）
+              await new Promise(resolve => setTimeout(resolve, 10000));
               
               // 获取最终 URL
               const finalUrl = page.url();
