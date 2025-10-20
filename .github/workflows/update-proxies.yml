@@ -58,7 +58,7 @@ jobs:
                 timeout: 30000 
               });
               
-              // 等待 10 秒重定向（模拟 JS 延迟，使用 Promise polyfill）
+              // 等待 10 秒重定向（模拟 JS 延迟）
               await new Promise(resolve => setTimeout(resolve, 10000));
               
               // 获取最终 URL
@@ -66,22 +66,44 @@ jobs:
               console.log('Final URL after redirect:', finalUrl);
               
               let content = '';
+              
+              // 监听响应以捕获 API 的原始文本
+              page.on('response', async (response) => {
+                if (response.url().includes('/api/sub.php')) {
+                  try {
+                    content = await response.text();
+                    console.log('Raw content preview (first 200 chars):', content.substring(0, 200));
+                    console.log('Raw content length:', content.length);
+                  } catch (e) {
+                    console.error('Failed to get response text:', e.message);
+                  }
+                }
+              });
+              
               if (finalUrl.includes('/api/sub.php')) {
-                // 已重定向到 API，提取纯文本内容
-                content = await page.evaluate(() => document.body.innerText.trim());
+                // 已重定向，响应监听器会捕获
+                // 额外等待以确保响应处理
+                await new Promise(resolve => setTimeout(resolve, 2000));
               } else {
-                // 如果未重定向，直接访问 API
+                // 如果未重定向，直接访问 API 并捕获响应
                 console.log('Redirect not detected, accessing API directly');
                 await page.goto('https://www.bsbb.cc/api/sub.php?t=cefcc1b46a5daecc824598207e9ff10a', { 
                   waitUntil: 'networkidle0',
                   timeout: 30000 
                 });
-                content = await page.evaluate(() => document.body.innerText.trim());
+                // 等待响应处理
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+              
+              if (content.length === 0) {
+                // Fallback: 尝试从页面提取
+                content = await page.evaluate(() => document.body.innerText);
+                console.log('Fallback to innerText, length:', content.length);
               }
               
               // 写入文件
               fs.writeFileSync('sub.txt', content);
-              console.log(`Fetched content length: ${content.length} characters`);
+              console.log(`Final content length: ${content.length} characters`);
               
             } catch (error) {
               console.error('Error during fetch:', error.message);
@@ -95,8 +117,8 @@ jobs:
           node fetch.js
           
           # 检查是否获取成功
-          if [ ! -s sub.txt ]; then
-            echo "Failed to fetch content. Check Puppeteer logs above."
+          if [ ! -s sub.txt ] || [ $(wc -c < sub.txt) -lt 100 ]; then
+            echo "Failed to fetch sufficient content. Check Puppeteer logs above."
             exit 1
           fi
           echo "Successfully fetched $(wc -l < sub.txt) lines"
@@ -104,15 +126,19 @@ jobs:
       - name: Decode and extract VLESS/Trojan links
         run: |
           # 尝试 Base64 解码，如果失败则当作明文
-          if command -v base64 >/dev/null && base64 -d sub.txt > decoded.txt 2>/dev/null; then
+          if command -v base64 >/dev/null && base64 -d sub.txt > decoded.txt 2>/dev/null && [ $(wc -c < decoded.txt) -gt $(wc -c < sub.txt) ]; then
             echo "Decoded Base64 content"
           else
             cp sub.txt decoded.txt
             echo "Treated as plain text"
           fi
           
-          # 提取 vless:// 和 trojan:// 链接，每行一个
-          grep -E '^(vless|trojan)://' decoded.txt > nodes.txt || true
+          # 日志：输出前5行内容，便于调试格式
+          echo "Decoded content preview (first 5 lines):"
+          head -5 decoded.txt
+          
+          # 提取 vless:// 和 trojan:// 链接（更宽松：忽略行首空格，大小写不敏，提取完整 URI）
+          grep -iE -o '(vless|trojan)://[^[:space:]\r\n]*' decoded.txt | sort -u > nodes.txt || true
           
           # 如果没有匹配，创建空文件
           if [ ! -s nodes.txt ]; then
