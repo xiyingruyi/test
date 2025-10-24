@@ -1,25 +1,25 @@
 /*
-脚本描述: vivo VCode API 响应修改，用于模拟会员有效状态。
+脚本描述: DUtils API 响应修改，用于模拟会员有效状态。
 原作者: NobyDa (脚本逻辑参考)
-目标域名: vcode-api.vivo.com.cn
+目标域名: api-d.dutils.com
 
 ***************************
 Quantumult X:
 
 [rewrite_local]
-^https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vivo_Vcode_Rule.js
+^https:\/\/api-d\.dutils\.com\/api\/v1\/rule\/get\.do url script-response-body dutils_Rule.js
 
 [mitm]
-hostname = vcode-api.vivo.com.cn
+hostname = api-d.dutils.com
 
 ***************************
 Surge4 or Loon:
 
 [Script]
-http-response https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do requires-body=1,max-size=0,script-path=vivo_Vcode_Rule.js
+http-response https:\/\/api-d\.dutils\.com\/api\/v1\/rule\/get\.do requires-body=1,max-size=0,script-path=dutils_Rule.js
 
 [MITM]
-hostname = vcode-api.vivo.com.cn
+hostname = api-d.dutils.com
 
 ***************************
 Quantumult:  
@@ -28,10 +28,10 @@ Quantumult:
 // 此处仅提供 MITM 和 REWRITE 示例。
 
 [REWRITE]
-https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vivo_Vcode_Rule.js
+https:\/\/api-d\.dutils\.com\/api\/v1\/rule\/get\.do url script-response-body dutils_Rule.js
 
 [MITM]
-hostname = vcode-api.vivo.com.cn
+hostname = api-d.dutils.com
 
 **************************/
 let obj = JSON.parse($response.body);
