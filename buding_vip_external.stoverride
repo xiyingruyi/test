@@ -1,0 +1,22 @@
+http:
+  mitm:
+    - vcode-api.vivo.com.cn
+    - www.budingscan.com
+
+  script:
+    - match: ^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do
+      name: vip_unlock_script
+      type: response
+
+    - match: ^https?:\/\/www\.budingscan\.com\/server\/get_user_config
+      name: vip_unlock_script
+      type: response
+
+    - match: ^https?:\/\/www\.budingscan\.com\/server\/payment\/paid_modules
+      name: vip_unlock_script
+      type: response
+
+script-providers:
+  vip_unlock_script:
+    url: https://raw.githubusercontent.com/你的用户名/仓库名/main/vip_unlock.js  # 你的 raw JS URL
+    interval: 86400  # 每天更新
