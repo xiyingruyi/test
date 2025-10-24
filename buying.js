@@ -1,6 +1,3 @@
-/*
-脚本功能：微白扫描 VIP 解锁（仅限个人测试学习）
-结合 Vivo /rule/get.do 和 Buding /get_user_config，模拟终身 VIP 会员
 [rewrite_local]
 # Vivo 会员验证
 ^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body buding_vip_unlock.js
@@ -16,8 +13,9 @@
 
 [mitm]
 hostname = vcode-api.vivo.com.cn, www.budingscan.com
-*/
 
+[script]
+# 保存为 buding_vip_unlock.js
 let body = $response.body;
 try {
     let obj = JSON.parse(body);
