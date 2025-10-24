@@ -1,15 +1,12 @@
 [rewrite_local]
-# Vivo 会员验证
+# Vivo 会员验证 API
 ^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body buding_vip_unlock.js
 
-# Buding 用户配置
+# Buding 用户配置 API
 ^https?:\/\/www\.budingscan\.com\/server\/get_user_config url script-response-body buding_vip_unlock.js
 
-# 可选：Buding 模块列表（文件1）
-^https?:\/\/www\.budingscan\.com\/server\/payment\/plan\/modules url script-response-body buding_vip_unlock.js
-
-# 可选：Buding 订阅计划（文件2）
-^https?:\/\/www\.budingscan\.com\/server\/payment\/plans url script-response-body buding_vip_unlock.js
+# Buding 付费模块 API（usage_limit）
+^https?:\/\/www\.budingscan\.com\/server\/payment\/paid_modules url script-response-body buding_vip_unlock.js
 
 [mitm]
 hostname = vcode-api.vivo.com.cn, www.budingscan.com
@@ -24,49 +21,44 @@ try {
     if ($request.url.includes('/rule/get.do') && obj.data && Array.isArray(obj.data) && obj.data.length > 0) {
         console.log("修改 Vivo cstatus 为 VIP");
         let userData = obj.data[0];
-        userData.cstatus = 1;  // 会员状态解锁
+        userData.cstatus = "1";  // 字符串 "1"（匹配原类型）
         userData.pstatus = "y1";  // 付费确认
-        let now = Date.now();  // 当前 ms
+        let now = Date.now();  // 当前 ms 时间戳
         userData.ctime = now;
         userData.ptime = now;
+        console.log("Vivo 修改后: cstatus=" + userData.cstatus + ", pstatus=" + userData.pstatus);
     } 
     
     // 2. Buding /get_user_config（修改 user_type 等）
     else if ($request.url.includes('/get_user_config') && obj.result && obj.result.user_type !== undefined) {
         console.log("修改 Buding 用户 config 为 VIP");
         let result = obj.result;
-        result.user_type = 2;  // VIP 类型
+        result.user_type = 1;  // VIP 类型（-1 → 1，基于常见逆向）
         result.vip_storage = 20480;  // 20GB
         result.renewal_status = 1;  // 续费开启
         result.subscribe_plan_validity = 36500;  // 100年
         result.subscribe_plan_name = "终身会员";
-        let future = Math.floor(Date.now() + (365 * 24 * 60 * 60 * 1000 * 100));  // 100年 ms
+        let future = Math.floor(Date.now() + (365 * 24 * 60 * 60 * 1000 * 100));  // 100年 ms 时间戳
         result.end_time = future;
         result.next_pay_time = future;
+        console.log("Buding 修改后: user_type=" + result.user_type + ", vip_storage=" + result.vip_storage);
     } 
     
-    // 可选：Buding 模块列表（有 module 数组）
-    else if (obj.result && Array.isArray(obj.result) && obj.result[0] && obj.result[0].module !== undefined) {
-        console.log("修改模块为无限");
-        obj.result.forEach(item => {
-            item.usage_limit = -1;
-            if (item.vip_storage_limit !== null) item.storage_limit = item.vip_storage_limit;
+    // 3. Buding /paid_modules（修改 usage_limit 为 VIP 值）
+    else if ($request.url.includes('/paid_modules') && obj.result && Array.isArray(obj.result)) {
+        console.log("修改 Buding 模块为 VIP 无限");
+        obj.result.forEach(function(item) {
+            item.usage_limit = -1;  // 无限次（VIP 值）
+            if (item.vip_storage_limit !== null && item.vip_storage_limit !== undefined) {
+                item.storage_limit = item.vip_storage_limit;  // 升级存储
+            }
         });
-    } 
-    
-    // 可选：Buding 订阅计划（有 plan_id 数组）
-    else if (obj.result && Array.isArray(obj.result) && obj.result[0] && obj.result[0].plan_id !== undefined) {
-        console.log("修改计划为免费");
-        obj.result.forEach(item => {
-            item.price = "0";
-            item.desc += " (测试免费)";
-            if (item.rich_text) item.rich_text += " → 免费";
-        });
+        console.log("模块修改完成，usage_limit 全设为 -1");
     }
     
-    body = JSON.stringify(obj, null, 2);  // 美化输出
+    body = JSON.stringify(obj, null, 2);  // 美化 JSON 输出
 } catch (error) {
-    console.log("JSON 错误: " + error);
+    console.log("JSON 解析错误: " + error);
 }
 
 $done({ body });
