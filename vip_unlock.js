@@ -1,9 +1,53 @@
+/*
+脚本描述: vivo VCode API 响应修改，用于模拟有效状态或特定规则。
+原作者: NobyDa (脚本逻辑参考)
+目标域名: vcode-api.vivo.com.cn
+
+***************************
+Quantumult X:
+
+[rewrite_local]
+^https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vivo_Vcode_Rule.js
+
+[mitm]
+hostname = vcode-api.vivo.com.cn
+
+***************************
+Surge4 or Loon:
+
+[Script]
+http-response https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do requires-body=1,max-size=0,script-path=vivo_Vcode_Rule.js
+
+[MITM]
+hostname = vcode-api.vivo.com.cn
+
+***************************
+Quantumult:  
+// 注意：Quantumult的simple-response需要Base64编码的完整HTTP响应。
+// 鉴于API响应结构未知，此部分请自行调试或使用 REWRITE 配合 JS 脚本。
+// 此处仅提供 MITM 和 REWRITE 示例。
+
+[REWRITE]
+https:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vivo_Vcode_Rule.js
+
+[MITM]
+hostname = vcode-api.vivo.com.cn
+
+**************************/
 let obj = JSON.parse($response.body);
 
-if ($request.url.includes('/rule/get.do')) {
-  obj = {"code":200,"data":[{"cstatus":"1","ctime":Date.now(),"mid":"A553","pstatus":"y1","ptime":Date.now(),"reportFrequency":"200000"}],"msg":""};
-} else if ($request.url.includes('/get_user_config')) {
-  obj = {"code":0,"cost_time":"90 ms","msg":"ok","result":{"avatar":"https://www.budingscan.com/ai_painting_no_auth/img?id=7d084d3f-a867-4e81-b39b-bf02e9b3a637.jpg","email":"","end_time":"2013017600","icode":"","invitation_code":"Q6JFC5","nationCode":"86","next_pay_price":null,"next_pay_time":"2013017600","nickname":"夕影血薇","oral":1,"phone":"XXXXXX","renewal_status":1,"subscribe_pay_type":0,"subscribe_plan_name":"终身会员","subscribe_plan_validity":36500,"sync_type":3,"total_storage":288358400,"uid":"c22f7d0ca75711ed8b19b49691e04e00","used_storage":0,"user_type":2,"vip_storage":20480},"sid":"907a9c76-b10c-11f0-bcef-b49691e0d748","ver":"prd"};
-}
+// 构造一个模拟成功的响应体
+// 这里的结构是假设的，您可能需要根据实际抓包结果调整 `data` 中的内容
+obj = {
+  "code": 0,         // 假设 0 表示成功
+  "message": "success",
+  "data": {
+    "rule_id": 99999,
+    "start_time": "2024-01-01 00:00:00",
+    "end_time": "2099-12-31 23:59:59", // 设定一个很远的过期时间
+    "status": 1, // 假设 1 表示有效
+    "is_vip_rule": true
+  }
+};
 
 $done({body: JSON.stringify(obj)});
