@@ -1,22 +1,6 @@
-http:
-  mitm:
-    - vcode-api.vivo.com.cn
-    - www.budingscan.com
+[rewrite_local]
+^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vip_hard.js
+^https?:\/\/www\.budingscan\.com\/server\/get_user_config url script-response-body vip_hard.js
 
-  script:
-    - match: ^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do
-      name: vip_unlock_script
-      type: response
-
-    - match: ^https?:\/\/www\.budingscan\.com\/server\/get_user_config
-      name: vip_unlock_script
-      type: response
-
-    - match: ^https?:\/\/www\.budingscan\.com\/server\/payment\/paid_modules
-      name: vip_unlock_script
-      type: response
-
-script-providers:
-  vip_unlock_script:
-    url: https://raw.githubusercontent.com/xiyingruyi/test/refs/heads/main/vip_unlock.js  # 你的 raw JS URL
-    interval: 86400  # 每天更新
+[mitm]
+hostname = vcode-api.vivo.com.cn, www.budingscan.com
