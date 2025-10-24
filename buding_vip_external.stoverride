@@ -1,6 +1,0 @@
-[rewrite_local]
-^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do url script-response-body vip_hard.js
-^https?:\/\/www\.budingscan\.com\/server\/get_user_config url script-response-body vip_hard.js
-
-[mitm]
-hostname = vcode-api.vivo.com.cn, www.budingscan.com
