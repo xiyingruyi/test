@@ -17,7 +17,7 @@ script-providers:
   buding-script-provider:
     type: http
     # !!! 替换为您的脚本 Raw URL !!!
-    url: https://your-raw-url-here/buding_scan_premium.js
+    url: https://raw.githubusercontent.com/xiyingruyi/test/refs/heads/main/buding_scan_premium.js
     interval: 86400 # 脚本更新间隔（24小时）
 
 # ----------------------------------------------------
