@@ -1,0 +1,80 @@
+http:
+  mitm:  # MITM 拦截域名
+    - vcode-api.vivo.com.cn
+    - www.budingscan.com
+
+  script:  # 规则 + 内嵌 JS 脚本
+    # 规则1: Vivo 会员验证
+    - match: ^https?:\/\/vcode-api\.vivo\.com\.cn\/api\/v1\/rule\/get\.do
+      name: buding_vip_unlock
+      type: response
+      script: |
+        let body = $response.body;
+        try {
+            let obj = JSON.parse(body);
+            if (obj.data && Array.isArray(obj.data) && obj.data.length > 0) {
+                console.log("修改 Vivo cstatus 为 VIP");
+                let userData = obj.data[0];
+                userData.cstatus = "1";  // 字符串 "1"
+                userData.pstatus = "y1";  // 付费确认
+                let now = Date.now();  // 当前 ms
+                userData.ctime = now;
+                userData.ptime = now;
+                console.log("Vivo 修改后: cstatus=" + userData.cstatus + ", pstatus=" + userData.pstatus);
+            }
+            body = JSON.stringify(obj, null, 2);
+        } catch (error) {
+            console.log("JSON 错误: " + error);
+        }
+        $done({ body });
+
+    # 规则2: Buding 用户配置
+    - match: ^https?:\/\/www\.budingscan\.com\/server\/get_user_config
+      name: buding_user_config
+      type: response
+      script: |
+        let body = $response.body;
+        try {
+            let obj = JSON.parse(body);
+            if (obj.result && obj.result.user_type !== undefined) {
+                console.log("修改 Buding 用户 config 为 VIP");
+                let result = obj.result;
+                result.user_type = 1;  // VIP 类型（试 1 或 2）
+                result.vip_storage = 20480;  // 20GB
+                result.renewal_status = 1;
+                result.subscribe_plan_validity = 36500;
+                result.subscribe_plan_name = "终身会员";
+                let future = Math.floor(Date.now() + (365 * 24 * 60 * 60 * 1000 * 100));  // 100年 ms
+                result.end_time = future;
+                result.next_pay_time = future;
+                console.log("Buding 修改后: user_type=" + result.user_type + ", vip_storage=" + result.vip_storage);
+            }
+            body = JSON.stringify(obj, null, 2);
+        } catch (error) {
+            console.log("JSON 错误: " + error);
+        }
+        $done({ body });
+
+    # 规则3: Buding 付费模块
+    - match: ^https?:\/\/www\.budingscan\.com\/server\/payment\/paid_modules
+      name: buding_paid_modules
+      type: response
+      script: |
+        let body = $response.body;
+        try {
+            let obj = JSON.parse(body);
+            if (obj.result && Array.isArray(obj.result)) {
+                console.log("修改 Buding 模块为 VIP 无限");
+                obj.result.forEach(function(item) {
+                    item.usage_limit = -1;  // 无限次
+                    if (item.vip_storage_limit !== null) {
+                        item.storage_limit = item.vip_storage_limit;
+                    }
+                });
+                console.log("模块修改完成，usage_limit 全设为 -1");
+            }
+            body = JSON.stringify(obj, null, 2);
+        } catch (error) {
+            console.log("JSON 错误: " + error);
+        }
+        $done({ body });
